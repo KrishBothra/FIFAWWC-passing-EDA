@@ -1,9 +1,17 @@
-library(tidyverse)
 library(circular)
+library(CircStats)
+library(sportyR)
+library(patchwork)
 library(gt)
-library(readr)
+library(tidyverse)
+
 
 wwc_passes <- read_csv("https://raw.githubusercontent.com/36-SURE/2026/main/data/wwc_passes.csv")
+WWC_2023_rankings <- read_csv("Bothra/WWC_2023_rankings_v3.csv")
+
+wwc_passes <- wwc_passes |> 
+  left_join(WWC_2023_rankings, by = "team.name")
+
 dim(wwc_passes)
 colnames(wwc_passes)
 
@@ -20,7 +28,7 @@ wwc_passes |>
 wwc_passes |> 
   filter(!is.na(under_pressure)) |> 
   count()
-
+  
 wwc_passes |> 
   group_by(position.name) |> 
   summarise(
@@ -29,6 +37,10 @@ wwc_passes |>
 
 wwc_passes_UP <- wwc_passes |> 
   filter(!is.na(under_pressure))
+
+wwc_passes_NUP <-   wwc_passes |> 
+  filter(is.na(under_pressure)) 
+
 
 wwc_passes_UP |> 
   group_by(location.x) |> 
@@ -40,6 +52,9 @@ wwc_passes_UP <- wwc_passes_UP |>
   mutate(pass_angle_degrees = pass.angle * (180/pi))
 
 wwc_passes <- wwc_passes|> 
+  mutate(pass_angle_degrees = pass.angle * (180/pi))
+
+wwc_passes_NUP <- wwc_passes_NUP|> 
   mutate(pass_angle_degrees = pass.angle * (180/pi))
 
 
@@ -85,10 +100,17 @@ wwc_passes_UP |>
   arrange(-avg_progress) |> 
   gt()
 
+View(wwc_passes_UP |> 
+       distinct(team.name, ranking, games_played)
+ )
+
 
 #passes backwards forwards NOT UNDER PRESSURE
 
 wwc_passes<- wwc_passes |> 
+  mutate(pass_direction = pass_angle_degrees <= 90 & pass_angle_degrees >= -90)
+
+wwc_passes_NUP<- wwc_passes_NUP |> 
   mutate(pass_direction = pass_angle_degrees <= 90 & pass_angle_degrees >= -90)
 
 
@@ -125,6 +147,23 @@ wwc_passes_UP |>
   arrange(period) |> 
   gt()
 
+wwc_passes <- wwc_passes |> 
+  mutate(
+    distance = sqrt((pass.end_location.x- location.x)^2 + (pass.end_location.y - location.y)^2)
+  )
 
-#write_csv(wwc_passes, "Bothra/wwc_passes.csv")
-#write_csv(wwc_passes_UP, "Bothra/wwc_passes_UP.csv")
+wwc_passes_NUP <- wwc_passes_NUP |> 
+  mutate(
+    distance = sqrt((pass.end_location.x- location.x)^2 + (pass.end_location.y - location.y)^2)
+  )
+
+wwc_passes_UP <- wwc_passes_UP |> 
+  mutate(
+    distance = sqrt((pass.end_location.x- location.x)^2 + (pass.end_location.y - location.y)^2)
+  )
+
+
+write_csv(wwc_passes, "Bothra/wwc_passes.csv")
+write_csv(wwc_passes_UP, "Bothra/wwc_passes_UP.csv")
+write_csv(wwc_passes_NUP, "Bothra/wwc_passes_NUP.csv")
+
