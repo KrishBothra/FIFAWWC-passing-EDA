@@ -5,8 +5,8 @@ library(patchwork)
 library(gt)
 library(tidyverse)
 
-country1 <- "Colombia Women's"
-country2 <- "Morocco Women's"
+country1 <- "Netherlands Women's"
+country2 <- "Netherlands Women's"
 
 wwc_passes <- read_csv("Bothra/wwc_passes.csv")
 wwc_passes_UP <- read_csv("Bothra/wwc_passes_UP.csv")
@@ -81,9 +81,9 @@ wwc_passes_NUP |>
 
 rose_1 <- wwc_passes_UP |>
   filter(team.name == country1) |>
-  mutate(success = !is.na(pass.outcome.name)) |>
-  ggplot(aes(x = pass_angle_degrees, fill = success)) +
-  geom_histogram(aes(y = after_stat(density)), binwidth = 10) +
+  mutate(success = is.na(pass.outcome.name)) |>
+  ggplot(aes(x = -pass_angle_degrees)) +
+  geom_histogram(aes(y = after_stat(density)), fill = 'indianred2', binwidth = 10) +
   scale_x_continuous(
     breaks = c(0, 90, 180, -90),
     labels = c("0°", "90°", "180°", "-90°")
@@ -99,11 +99,11 @@ rose_1 <- wwc_passes_UP |>
     legend.position = 'none'
   )
 
-rose_2 <- wwc_passes_UP |>
+rose_2 <- wwc_passes_NUP |>
   filter(team.name == country2) |>
-  mutate(success = !is.na(pass.outcome.name)) |>
-  ggplot(aes(x = pass_angle_degrees, fill = success)) +
-  geom_histogram(aes(y = after_stat(density)), binwidth = 10) +
+  mutate(success = is.na(pass.outcome.name))|>
+  ggplot(aes(x = -pass_angle_degrees)) +
+  geom_histogram(aes(y = after_stat(density)), fill = 'dodgerblue' ,binwidth = 10) +
   scale_x_continuous(
     breaks = c(0, 90, 180, -90),
     labels = c("0°", "90°", "180°", "-90°")
@@ -117,7 +117,7 @@ rose_2 <- wwc_passes_UP |>
     strip.background = element_rect(fill = "transparent", colour = NA),
     strip.text = element_text(colour = "white"),
     legend.position = 'none'
-  )
+  ) 
 
 rose_1
 rose_2
@@ -141,6 +141,46 @@ soccer_pitch + inset_element(compare_angle_overlay, left = 0, bottom = 0, right 
 ((((((((((((((((((((((((((((((((((((((((((((((((((((()))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 teams <- unique(wwc_passes_UP$team.name)
+
+#All Passes***************************************************************************
+
+results <- combn(teams, 2, simplify = FALSE) |>
+  map_dfr(function(pair) {
+    x <- circular(wwc_passes |> filter(team.name == pair[1]) |> pull(pass_angle_degrees), units = "degrees")
+    y <- circular(wwc_passes |> filter(team.name == pair[2]) |> pull(pass_angle_degrees), units = "degrees")
+    test <- watson.two.test(x, y)
+    tibble(
+      team_1 = pair[1],
+      team_2 = pair[2],
+      statistic = round(test$statistic, 4),
+      significant = test$statistic > 0.187  # threshold for p < 0.05
+    )
+  })
+
+# number of times diff
+all_teams <- tibble(team.name = unique(c(results$team_1, results$team_2)))
+
+results |> 
+  filter(significant == TRUE) |> 
+  pivot_longer(cols = c(team_1, team_2), values_to = "team.name") |>
+  count(team.name, sort = TRUE) |> 
+  right_join(all_teams, by = "team.name") |>
+  mutate(n = replace_na(n, 0)) |>
+  left_join(wwc_2023_rankings, by = 'team.name') |> 
+  arrange( -n, -ranking) |>
+  gt()
+
+# Every significant result
+results |>
+  filter(significant == TRUE) |>
+  gt() |>
+  tab_header(title = "Watson Test: Pass Angle Distributions by Team Pair") |>
+  cols_label(
+    team_1 = "Team 1",
+    team_2 = "Team 2",
+    statistic = "Watson Statistic",
+    significant = "Significant (p < 0.05)"
+  )
 
 #NOT UNDER PRESSURE  ***************************************************************************
 
@@ -259,19 +299,67 @@ results_pressure |>
   )
 
 
-results_pressure |>
+gt_results_pressure <- results_pressure |>
   left_join(wwc_2023_rankings, by = 'team.name') |> 
   left_join(avg_dist_all, by = 'team.name') |> 
-  #filter(ranking >= 9) |> 
   group_by(significant) |> 
   summarise(
     avg_games_played = mean(games_played),
     avg_wins = mean(wins),
-    avg_draws = mean(draws),
     avg_gd = mean(goal_diff),
-    avg_dist = mean(avg_distance)
-  ) 
-  
+  ) |> 
+  arrange(-avg_gd) |> 
+  mutate(significant = ifelse(significant, "Significant", "Not Significant")) |>
+  gt() |>
+  tab_header(
+    title    = md("**Passing Under Pressure In The First Period**"),
+    subtitle = "WWC 2023 — Team Performance by Significance Group"
+  ) |>
+  cols_label(
+    significant      = "Group",
+    avg_games_played = "Avg Games",
+    avg_wins         = "Avg Wins",
+    avg_gd           = "Avg Goal Diff"
+  ) |>
+  fmt_number(columns = c(avg_games_played, avg_wins, avg_gd), decimals = 1) |>
+  data_color(
+    columns = avg_gd,
+    colors  = scales::col_numeric(
+      palette = c("#d73027", "#ffffbf", "#1a9850"),
+      domain  = NULL
+    )
+  ) |>
+  data_color(
+    columns = avg_wins,
+    colors  = scales::col_numeric(
+      palette = c("#d73027", "#1a9850"),
+      domain  = NULL
+    )
+  ) |> 
+  data_color(
+    columns = avg_games_played,
+    colors  = scales::col_numeric(
+      palette = c("#d73027", "#1a9850"),
+      domain  = NULL
+    )
+  ) |> 
+  tab_style(
+    style     = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style     = cell_text(color = "white", weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_options(
+    table.font.size            = 14,
+    heading.title.font.size    = 18,
+    heading.subtitle.font.size = 13,
+    column_labels.background.color = "#2c3e50"
+  )
+
+
+gtsave(gt_results_pressure, "Bothra/Plots_Tables/passing-UP-based-on-signif.png")
 
 (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((())))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
@@ -287,6 +375,11 @@ ned_angles <- wwc_passes_NUP |> filter(team.name == country2) |> pull(pass_angle
 
 eng_angles <- wwc_passes_UP |> filter(team.name == country1) |> pull(pass_angle_degrees)
 ned_angles <- wwc_passes_UP |> filter(team.name == country2) |> pull(pass_angle_degrees)
+
+#ALL Passes   ***************************************************************************
+
+eng_angles <- wwc_passes |> filter(team.name == country1) |> pull(pass_angle_degrees)
+ned_angles <- wwc_passes |> filter(team.name == country2) |> pull(pass_angle_degrees)
 
 eng_circ <- circular(eng_angles, units = "degrees")
 ned_circ <- circular(ned_angles, units = "degrees")
