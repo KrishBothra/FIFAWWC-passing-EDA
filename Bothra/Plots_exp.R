@@ -6,7 +6,7 @@ library(gt)
 library(tidyverse)
 
 country1 <- "Netherlands Women's"
-country2 <- "Netherlands Women's"
+country2 <- "Colombia Women's"
 
 wwc_passes <- read_csv("Bothra/wwc_passes.csv")
 wwc_passes_UP <- read_csv("Bothra/wwc_passes_UP.csv")
@@ -79,8 +79,8 @@ wwc_passes_NUP |>
   facet_wrap(~team.name)
 
 
-rose_1 <- wwc_passes_UP |>
-  filter(team.name == country1) |>
+rose_1 <- wwc_passes |>
+  filter(team.name == country1 & period == 1 & location.x >= 60) |>
   mutate(success = is.na(pass.outcome.name)) |>
   ggplot(aes(x = -pass_angle_degrees)) +
   geom_histogram(aes(y = after_stat(density)), fill = 'indianred2', binwidth = 10) +
@@ -99,8 +99,8 @@ rose_1 <- wwc_passes_UP |>
     legend.position = 'none'
   )
 
-rose_2 <- wwc_passes_NUP |>
-  filter(team.name == country2) |>
+rose_2 <- wwc_passes |>
+  filter(team.name == country2 & period == 1 & location.x >=60) |>
   mutate(success = is.na(pass.outcome.name))|>
   ggplot(aes(x = -pass_angle_degrees)) +
   geom_histogram(aes(y = after_stat(density)), fill = 'dodgerblue' ,binwidth = 10) +
@@ -312,8 +312,8 @@ gt_results_pressure <- results_pressure |>
   mutate(significant = ifelse(significant, "Significant", "Not Significant")) |>
   gt() |>
   tab_header(
-    title    = md("**Passing Under Pressure In The First Period**"),
-    subtitle = "WWC 2023 — Team Performance by Significance Group"
+    title    = "",#md("**Passing Under Pressure In The First Period**"),
+    subtitle = ""#"WWC 2023 — Team Performance by Significance Group"
   ) |>
   cols_label(
     significant      = "Group",
@@ -325,21 +325,21 @@ gt_results_pressure <- results_pressure |>
   data_color(
     columns = avg_gd,
     colors  = scales::col_numeric(
-      palette = c("#d73027", "#ffffbf", "#1a9850"),
+      palette = c("indianred2", "#ffffbf", "dodgerblue"),
       domain  = NULL
     )
   ) |>
   data_color(
     columns = avg_wins,
     colors  = scales::col_numeric(
-      palette = c("#d73027", "#1a9850"),
+      palette = c("indianred2", "dodgerblue"),
       domain  = NULL
     )
   ) |> 
   data_color(
     columns = avg_games_played,
     colors  = scales::col_numeric(
-      palette = c("#d73027", "#1a9850"),
+      palette = c("indianred2", "dodgerblue"),
       domain  = NULL
     )
   ) |> 
